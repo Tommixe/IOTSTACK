@@ -1,0 +1,68 @@
+#CREDITS https://github.com/ansjin/docker-compose-influxdb-v2-grafana
+
+version: '3.9'
+services:
+  
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    restart: always
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes: 
+        - ./mosquitto:/mosquitto/config  
+    networks:
+      - iot
+
+  telegraf:
+    image: telegraf
+    restart: always
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - mosquitto
+      - influxdb
+    networks:
+      - iot    
+
+  influxdb:
+    image: influxdb:latest
+    ports:
+      - '8086:8086'
+    volumes:
+      - influxdb-storage:/var/lib/influxdb
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN}
+      - DOCKER_INFLUXDB_INIT_RETENTION=${INFLUXDB_INIT_RETENTION}
+    networks:
+      - iot
+ 
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3001:3000'
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/:/etc/grafana/provisioning/
+    networks:
+      - iot      
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN}
+
+networks:
+  iot:
+
+volumes:
+  influxdb-storage:
+  grafana-storage:
